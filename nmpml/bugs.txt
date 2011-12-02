@@ -1,0 +1,2 @@
+There are lots of bugs that are not in this list. Previously, it was badly out of date, and contained listings that are no longer bugs. This empty state is less misleading, but ... #FIXME: add current bugs to the bugs list.
+

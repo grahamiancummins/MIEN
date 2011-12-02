@@ -1,0 +1,15 @@
+All elements should have Name attributes.
+
+All str methods should return tag:name
+
+This combination should be unique within a document, and methods should be
+provided to search for it.
+
+An ElementReference tag should be added, which references elements using
+this tag:name system, and provides methods for returning pointers to the
+referenced object. 
+
+All elements that need element references, including alignables 
+(Cell, Fiducial), search results, synapticevents, and experiments should use
+ElementReference children rather than internal methods to reference their
+targets. 

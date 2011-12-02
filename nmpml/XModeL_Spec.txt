@@ -1,0 +1,129 @@
+XModeL XML dialect specification
+
+Tags:
+
+XModeLDocument
+
+		Parents: None, this is the toplevel tag. 
+
+		Children: Cell, Fiducial, ReferencePoint, Mask, AbstractModel, Comments
+
+		Attributes: None
+
+		Data: None
+
+Comments 
+		
+		Parents: Any XModeL tag
+
+		Children: None
+
+		Attributes: None
+
+		Data: string. My implementation treats all whitespace containing
+			  a newline as a single newline, and all other
+			  whitespace  as a single space, but other
+			  treatments of whitespace are acceptable.
+
+Cell 
+
+		Parents: XModeLDocument
+
+		Children: Section, Mask, NamedRegion, LocalizedEvent, Ion,
+				  AxialResistivity, MembraneCapacitance, VoltageGatedChannel,
+				  PassiveChannel, Comments
+
+		Attributes: Name (unique identifier) [Required]
+					ReferencePointReference (unique ID reference) [Recommended]
+					Color (string. Unix color name or "RGB (#,#,#)") [Optional]
+
+		Data: None
+
+Fiducial
+
+		Parents: XModeLDocument
+
+		Children: Point, Comments			
+
+		Attributes: Style ("spheres"|"points"|"line") [Required]
+					Description (string) [Recommended]
+					ReferencePointReference (unique ID reference) [Recommended]
+					Color (string) [Optional]
+					MarkerType  (Neurolucida marker name) [Optional]
+					Resolution (float) [Optional]
+
+		Data: None
+
+ReferencePoint
+
+		Parents: XModeLDocument
+
+		Children: ReferenceConversion, Comments
+
+		Attributes: Name (unique ID) [Required]
+					Units (string recognized by Unix "units" command) [Required]
+
+		Data: None
+
+			
+ReferenceConversion
+
+		Parents: ReferencePoint
+
+		Children: Comments
+
+		Attributes:		ReferencePointReference (ID reference) [Requred]
+						Trans_x  (float in same units as parent ReferencePoint) [Optional]
+						Trans_y  (float) [Optional]
+						Trans_z  (float) [Optional]
+						Rot_x    (float in degrees counterclockwise) [Optional]
+						Rot_y    (float) [Optional]
+						Rot_z    (float) [Optional]
+						Scale_x  (float unitless) [Optional]
+						Scale_y  (float) [Optional]
+						Scale_z  (float) [Optional]
+						Scale_d  (float) [Optional]
+						Order    String made of comma separated "Scale" "Rot" and
+								 "Trans" (e.g. "Trans,Rot,Scale") 
+ 
+		Data: None	
+					
+Point
+
+		Parents: Section, Fiducial
+		
+		Children: None - self-closing tag
+
+		Attributes: x (float) [Required]
+					y (float) [Required]
+					z (float) [Required]
+					d (float) [Optional]
+					Description (string) [Optional]
+
+		Data: None - self-closing tag
+
+			 
+Section
+
+		Parents: Cell
+
+		Children: Point, Comments
+
+		Attributes: Name (unique ID) [Required]
+					Parent (unique ID reference for another section) [Required]
+						   (Note: parent is the string "None" for a root
+						   section)
+						   
+		Data: None
+
+		Notes: All points in a section are connected one to the next. The 
+			   first point is connected to the last point in the Parent
+				section. Sections never contain branches.				   
+				  
+
+
+
+ 
+		  
+
+		

@@ -1,0 +1,320 @@
+#!/usr/bin/env python
+
+## Copyright (C) 2005-2006 Graham I Cummins
+## This program is free software; you can redistribute it and/or modify it under 
+## the terms of the GNU General Public License as published by the Free Software 
+## Foundation; either version 2 of the License, or (at your option) any later version.
+## 
+## This program is distributed in the hope that it will be useful, but WITHOUT ANY 
+## WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+## PARTICULAR PURPOSE. See the GNU General Public License for more details.
+## 
+## You should have received a copy of the GNU General Public License along with 
+## this program; if not, write to the Free Software Foundation, Inc., 59 Temple 
+## Place, Suite 330, Boston, MA 02111-1307 USA
+## 
+
+
+usage='''mien [-h|v|t|p|a app|r method|s depth|c format]  [-f format] [-i] [file [file ...]]
+
+This command provides the user interface entry point for the MIEN python 
+package the basic invocation opens the toplevel xml-browser GUI. Command switches provide access to other component GUIs and CLIs. 
+
+One or more file paths may be passed as arguments. In this case the
+interface that opens will attempt to load (and concatenate) all of these
+files.
+
+-v visualize. In this mode, mien will attempt to automatically detect
+the type of the input files and open the simplest GUI that will provide
+a visual image of the data. Type detection is based on the type of the
+first file, and all files in the argument list will need to be of the
+same type.
+
+
+-t (Text) Open the interactive text-based (command line) ui
+
+-a app (Application) Open a particular component application. 
+   legitimate values for "app" are:
+		"cell" - the display GUI for anatomical data (CellViewer)
+		"data" - the display GUI for time series data (DataViewer)
+		"dsp"  - the Dsp toolchain generator (Dsp)
+		"image"- the image viewer
+		"update" - the Update Manager
+
+	
+-v (view) Try to open the "right" appication gui to view the indicated files.	
+	
+-s depth (Scan) Prints a scan of the file to the indicated depth and exits.
+	Use depth<0 to scan to unlimited depth.
+
+-r method (Run) Find and run a method of one of the objects in the first
+   specified data file (this file must exist, and it must contain an nmpml
+   model structure). There are several syntaxes for "method"
+
+   The most complete syntax is an nmpml upath, joined by a "." to the name
+   of a method (e.g. "/NmpmlDocument:MyDoc/Experiment:MyExperiment1.run) If
+   the path doesn't begin with a "/" but does contain a ":" the toplevel
+   document element is automatically matched, and the seach begins below
+   it. This syntax exactly specifies a particular element and method, which
+   must exist of the command fails immeadiately.
+
+   Alternatively, the path may be only an nmpml tag, joined to a method by
+   a '.' (eg "Experiment.run"). In this case mien will find the first
+   instance of that tag (using a bredth first search) and call the method
+
+   The method name may be ommitted, in which case it is assumed to be
+   "run", so "-r Experiment" is equivalent to the other examples above, if
+   called on a document that only defines one Experiment tag
+
+-b fname (batch): Used to call AbstractModels that take variable file inputs.
+   fname is the Url of a file containing input data. Mien will call the first
+   AbstractModel in the document, passing it data from the file at fname. The 
+   output will be stored in a file of the same type and extension as fname with
+   _mien_batch added to the name.
+
+-c type (Convert) Don't open any interface. Instead convert the input files to
+   the specified type (which should be a file name extension). Note that if
+   '-c' is specified on time -series data files, the file subset selection
+   dialog (command line version) will still appear, which can be useful for
+   cropping files. to over-ride this us -cf
+
+-i  (Interact) Prompt for selection of sub-components while loading files. This 
+	allows you to import brances of an xml tree, part of a binary file, etc.
+	This can greatly speed loading times, and allow you to scan huge files, but 
+	requires extra user interaction. 
+
+-f  format (Format) Force mien to use the specified format. 
+	This can be important for xml files that are not in the nmpml dialect
+	By default, the specialized nmpml classes are used to represent
+	corresponding nmpml tags. This offers advanced features (for
+	editing, display, and simulation of models), but may cause errors 
+	when loading non-nmpml xml.
+	
+	If you know the input file is xml, but not nmpml, use this switch 
+	with format "xml" if you want to be sure that the file is un-altered,
+	or use format "tonmp" to force the document into nmpml (which will
+	enable all the capabilites of the guis, but may cause the document to
+	be altered if you save it (even if you don't make any modifications
+	by hand)
+	
+	Legal arguments for "format" are any key in the mien.fileIO.filetypes
+	dictionary. You can get a list with "-f list", you can also get a list of the 
+	extensions associated to each file type with "-f listext"
+	
+
+-h help.
+
+--version  Version information for mien and the python modules it uses.
+
+--update   Updates mien and the installed blocks using a web repository, and 
+	then exits. You may first need to configure your update settings interactively.
+	You can do this with a text interface by running "mien -t" and then using the function 
+	"updater()", or with a GUI by running "mien -a update"
+	On many systems you will need to run "mien --update" with root privileges.  
+
+-p permissive. Set the environment variable MIEN_NO_VERIFY_XML, which prevents
+	the mien xml dialect parsers form raising exceptions if they are asked to
+	read xml that doesn't obey the DTD
+	
+-B no blocks. Disable extension loading	
+
+--profile  if non-interactive execution is specified (using "r" or "b"), use the Python profiler
+			to profile the run.
+
+'''
+
+import sys, os, getopt
+import time
+from mien.tools.identifiers import setConfigFile, getVersions
+
+#may be required on case insensitive os to avoid namespace collision 
+#between this file (mien) and the package mien
+
+# cdir=os.path.split(__file__)[0]
+# if cdir=='.':
+# 	cdir=os.getcwd()
+# try:	
+# 	sys.path.remove(cdir)
+# except:
+# 	pass
+
+def setenv(s):	
+	try:
+		os.environ[s]='1'
+	except:
+		print "WARNING: set environment failed, %s" % s
+		
+def showVersion():
+	from mien.tools.identifiers import getVersions
+	print "Python version %s" % (sys.version.split('\n')[0],)
+	import numpy
+	print "Numpy version %s" % (numpy.__version__,)
+	import OpenGL
+	print "GL version %s" % (OpenGL.__version__,)
+	import wx
+	print "wx version %s" % (wx.__version__,)
+	print "---"
+	for v in getVersions():
+		if v[1]<0:
+			vs="Can't get revision number"
+		else:
+			vs="Revision %i" % v[1]
+		if v[0]=='core':
+			print "MIEN Core: %s" % vs
+		else:
+			print "%s: %s" % (v[0], vs)
+
+if __name__=='__main__':
+	try:
+		options, files = getopt.getopt(sys.argv[1:], "ipvtha:r:s:c:f:b:B", ["version", "update", "profile"])
+	except getopt.error:
+		print usage
+		sys.exit()	
+	switches={}
+	for o in options:
+		switches[o[0].lstrip('-')]=o[1]
+	if switches.has_key('h'):
+		print usage
+		sys.exit()
+	if 	switches.has_key('version'):
+		showVersion()
+		sys.exit()	
+	if 	switches.has_key('update'):
+		import mien.tools.identifiers
+		mien.tools.identifiers.setConfigFile()
+		import mien.tools.updater
+		mien.tools.updater.update_all()
+		sys.exit()			
+	setConfigFile()	
+	if switches.has_key('p'):
+		setenv('MIEN_NO_VERIFY_XML')
+	if switches.has_key('B'):
+		setenv('MIEN_EXTENSION_DISABLE')
+	if switches.get('f', '').startswith('list'):
+		import mien.parsers.fileIO as io
+		formats=io.filetypes.keys()
+		print "The following file types are supported"
+		if switches['f']=='listext':
+			for f in formats:
+				el=", ".join(io.filetypes[f]['extensions'])
+				print "%s - %s" % (f, el)
+		else:	
+			for f in formats:
+				s=io.formatinfo(f)
+				print " %s - %s  " % (f, s)
+		sys.exit()
+	if not set(['c', 't', 'r', 's', 'b']).intersection(switches.keys()):
+		gui=True
+		from distutils.util import get_platform
+		platid = get_platform()
+		if platid.startswith('linux-'):
+			#this is a black magic bug workaround. If imported later on, these modules SegFault !
+			import OpenGL
+			import OpenGL.GL
+		from mien.wx.base import wx
+		wxapp = wx.PySimpleApp()			
+	else:
+		gui=False
+	if files:
+		ma=time.time()
+		kwargs={'gui':gui}
+		if 'f' in switches:
+			if switches['f']=="tonmp":
+				kwargs["convertxml"]=True
+			else:	
+				kwargs['format']=switches['f']
+		if 'i' in switches:
+			kwargs['select']=True
+		import mien.parsers.fileIO as io
+		doc=io.readall(files, **kwargs)
+		print time.time()-ma 
+	else:
+		doc=None	
+	if gui:
+		if switches.has_key('v'):
+			if not doc:
+				print "No files specified to view. Exiting"
+				sys.exit()
+			a=io.getViewerApp(doc)
+			if a:
+				switches['a']=a
+		if not switches.has_key('a'):
+			switches['a']='xml'
+		app=switches['a'].lower()
+		if app.startswith('i'):
+			from mien.image.viewer import ImageViewer
+			x = ImageViewer()
+		elif app.startswith('c'):
+			from mien.interface.cellview3D import CellViewer
+			x = CellViewer()
+		elif app.startswith('da'):
+			from mien.datafiles.viewer import Dataviewer
+			x = Dataviewer()
+		elif app.startswith('w'):
+			from mien.sound.synth import WFGui
+			x = WFGui()
+		elif app.startswith('ds'):
+			#dsp
+			from mien.dsp.gui import DspGui
+			x = DspGui()
+		elif app.startswith('u'):
+			#update manager
+			from mien.interface.updater import UpadteManager
+			x = UpadteManager()
+		elif app.startswith('x'):
+			from mien.interface.main import MienGui
+			x = MienGui()
+		else:
+			print "don't know about an app called %s" % app
+			sys.exit()
+		x.Show(True)
+		x.newDoc(doc)
+		wxapp.MainLoop()
+	else:
+		import mien.interface.cli as cli
+		if switches.has_key('t'):
+			cli.startCli(doc)
+		elif switches.has_key('s'):
+			cli.scan(doc, int(switches['s']))
+		elif switches.has_key('r'):
+			from mien.interface.cli import runmethod
+			if 'profile' in switches:
+				import profile
+				s=profile.runctx("runmethod(doc, switches['r'])", globals(), locals())
+				print(s)
+			else:
+				runmethod(doc, switches['r'])
+		elif switches.has_key('b'):
+			from mien.interface.cli import batchrun
+			if 'profile' in switches:
+				import profile
+				s=profile.runctx("batchrun(doc, switches['b'])", globals(), locals())
+				print(s)
+			else:
+				batchrun(doc, switches['b'])
+		elif switches.has_key('c'):
+			format=switches['c']
+			if not io.filetypes.has_key(format):
+				try:
+					if not format.startswith('.'):
+						format='.'+format
+					format=io.match_extension(format)[0]
+				except:
+					print "Can't determine format (use mien -f list to see formats)"
+					format=None
+			if format:
+				fname, ex=os.path.splitext(files[0])
+				newext = io.filetypes[format]['extensions'][0]
+				if ex==newext:
+					fname+="_miencopy"
+				ex=ex[1:]
+				if ex.isdigit():
+					fname=fname+"-"+ex
+				fname=fname+newext
+				ma=time.time()
+				print fname
+				io.write(doc, fname, format=format)
+				#print time.time()-ma 
+	sys.exit()
+		
+		
